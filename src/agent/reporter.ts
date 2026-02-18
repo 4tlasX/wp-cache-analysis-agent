@@ -6,6 +6,63 @@
 import type { AnalysisResult } from './analyzer.js';
 import type { LLMAnalysis } from '../llm/analyzer.js';
 
+/**
+ * Generate a visual score bar
+ */
+function getScoreBar(score: number): string {
+  const filled = Math.round(score / 10);
+  const empty = 10 - filled;
+  const color = score >= 80 ? '🟢' : score >= 60 ? '🟡' : '🔴';
+  return color + ' [' + '█'.repeat(filled) + '░'.repeat(empty) + ']';
+}
+
+/**
+ * Wrap text to a specified width, with special handling for numbered steps
+ */
+function wrapText(text: string, width: number): string[] {
+  // First, split on numbered steps like "1)", "2)", etc. to put each on its own line
+  const stepPattern = /(\d+\))/g;
+  const hasSteps = stepPattern.test(text);
+
+  if (hasSteps) {
+    // Split text into segments by step numbers
+    const segments = text.split(/(?=\d+\))/g).filter(s => s.trim());
+    const lines: string[] = [];
+
+    for (const segment of segments) {
+      const trimmed = segment.trim();
+      // Wrap each step individually
+      const wrapped = wrapSimple(trimmed, width);
+      lines.push(...wrapped);
+    }
+
+    return lines.length > 0 ? lines : [''];
+  }
+
+  return wrapSimple(text, width);
+}
+
+/**
+ * Simple word wrap without step handling
+ */
+function wrapSimple(text: string, width: number): string[] {
+  const words = text.split(' ');
+  const lines: string[] = [];
+  let currentLine = '';
+
+  for (const word of words) {
+    if (currentLine.length + word.length + 1 <= width) {
+      currentLine += (currentLine ? ' ' : '') + word;
+    } else {
+      if (currentLine) lines.push(currentLine);
+      currentLine = word;
+    }
+  }
+  if (currentLine) lines.push(currentLine);
+
+  return lines.length > 0 ? lines : [''];
+}
+
 export interface ReportOptions {
   format: 'json' | 'markdown' | 'text';
   verbose?: boolean;
@@ -941,29 +998,64 @@ function generateText(result: AnalysisResult, verbose = false, llmAnalysis?: LLM
 
   // AI Analysis
   if (llmAnalysis) {
-    lines.push('─'.repeat(40));
-    lines.push('AI ANALYSIS');
-    lines.push('─'.repeat(40));
-    lines.push(`Score: ${llmAnalysis.score}/100`);
     lines.push('');
-    lines.push(llmAnalysis.summary);
+    lines.push('╔' + '═'.repeat(78) + '╗');
+    lines.push('║' + '  🤖 AI ANALYSIS'.padEnd(78) + '║');
+    lines.push('╚' + '═'.repeat(78) + '╝');
+    lines.push('');
+
+    // Score with visual bar
+    const scoreBar = getScoreBar(llmAnalysis.score);
+    lines.push(`  Score: ${llmAnalysis.score}/100  ${scoreBar}`);
+    lines.push('');
+
+    // Summary in a box
+    lines.push('  ┌' + '─'.repeat(76) + '┐');
+    const summaryLines = wrapText(llmAnalysis.summary, 74);
+    for (const line of summaryLines) {
+      lines.push('  │ ' + line.padEnd(75) + '│');
+    }
+    lines.push('  └' + '─'.repeat(76) + '┘');
     lines.push('');
 
     if (llmAnalysis.issues.length > 0) {
-      lines.push('Issues:');
+      lines.push('  ▼ ISSUES');
+      lines.push('  ' + '─'.repeat(76));
       for (const issue of llmAnalysis.issues) {
-        lines.push(`  [${issue.severity.toUpperCase()}] ${issue.title}`);
-        lines.push(`    ${issue.description}`);
-        lines.push(`    Fix: ${issue.fix}`);
+        const icon = issue.severity === 'high' ? '🔴' : issue.severity === 'medium' ? '🟡' : '🟢';
+        lines.push('');
+        lines.push(`  ${icon} ${issue.title}`);
+        lines.push('');
+        // Wrap description
+        const descLines = wrapText(issue.description, 72);
+        for (const line of descLines) {
+          lines.push(`     ${line}`);
+        }
+        lines.push('');
+        // Wrap fix with "Fix:" prefix
+        lines.push('     💡 Fix:');
+        const fixLines = wrapText(issue.fix, 70);
+        for (const line of fixLines) {
+          lines.push(`        ${line}`);
+        }
       }
       lines.push('');
     }
 
     if (llmAnalysis.recommendations.length > 0) {
-      lines.push('Recommendations:');
+      lines.push('  ▼ RECOMMENDATIONS');
+      lines.push('  ' + '─'.repeat(76));
       for (const rec of llmAnalysis.recommendations) {
-        lines.push(`  ${rec.priority}. ${rec.title} (${rec.impact} impact)`);
-        lines.push(`     ${rec.description}`);
+        const impactIcon = rec.impact === 'high' ? '⬆️' : rec.impact === 'medium' ? '➡️' : '⬇️';
+        lines.push('');
+        lines.push(`  ${rec.priority}. ${rec.title}`);
+        lines.push(`     Impact: ${impactIcon} ${rec.impact}`);
+        lines.push('');
+        // Wrap description
+        const descLines = wrapText(rec.description, 72);
+        for (const line of descLines) {
+          lines.push(`     ${line}`);
+        }
       }
       lines.push('');
     }

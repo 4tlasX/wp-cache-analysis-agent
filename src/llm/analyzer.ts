@@ -47,27 +47,29 @@ Focus on:
 
 Be specific and actionable. Reference actual header values and plugin names when relevant. Include any relevant findings from web search about plugin conflicts, recommended settings, and configuration best practices. When suggesting settings, be specific about which plugin settings page and option names to look for.
 
-Respond with JSON only (no markdown code blocks):
+Respond with JSON only (no markdown code blocks, no citation tags):
 {
   "summary": "2-3 sentence summary of the cache setup",
   "score": 0-100,
   "issues": [
     {
       "severity": "high|medium|low",
-      "title": "Short title",
-      "description": "What's wrong",
-      "fix": "How to fix it"
+      "title": "Short title (5-10 words)",
+      "description": "Detailed explanation of what's wrong and why it matters (2-3 sentences)",
+      "fix": "Step-by-step instructions to fix: 1) Go to X settings page, 2) Change Y to Z, 3) Save and clear cache"
     }
   ],
   "recommendations": [
     {
       "priority": 1,
-      "title": "Short title",
-      "description": "What to do and why",
+      "title": "Short title (5-10 words)",
+      "description": "Detailed steps: 1) What to do, 2) Where to find the setting, 3) What value to use, 4) Why this helps",
       "impact": "high|medium|low"
     }
   ]
-}`;
+}
+
+CRITICAL: Every "fix" and "description" field MUST contain complete, actionable steps - never use "..." or placeholder text. Include specific plugin names, settings pages, and option values.`;
 
 export interface LLMAnalysis {
   summary: string;
@@ -127,8 +129,11 @@ export interface AnalyzeOptions {
  * Extract JSON from a response that may contain markdown code fences or extra text
  */
 function extractJSON<T>(text: string): T | null {
-  // Step 1: Strip markdown code fences (```json ... ``` or ``` ... ```)
-  let cleaned = text.replace(/```(?:json)?\s*([\s\S]*?)```/g, '$1');
+  // Step 1: Strip citation tags from web search results (e.g., <cite index="...">...</cite>)
+  let cleaned = text.replace(/<cite[^>]*>[\s\S]*?<\/cite>/gi, '');
+
+  // Step 2: Strip markdown code fences (```json ... ``` or ``` ... ```)
+  cleaned = cleaned.replace(/```(?:json)?\s*([\s\S]*?)```/g, '$1');
 
   // Step 2: Try to parse the entire cleaned text as JSON
   try {
@@ -308,7 +313,7 @@ async function analyzeWithClaude(context: AnalysisContext, apiKey?: string): Pro
     {
       system: SYSTEM_PROMPT,
       temperature: 0.5,
-      maxTokens: 2048,
+      maxTokens: 4096,
       webSearch: true,
     },
     apiKey
