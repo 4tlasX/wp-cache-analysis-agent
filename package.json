@@ -5,12 +5,14 @@
   "type": "module",
   "main": "dist/agent/index.js",
   "bin": {
-    "wp-analyze": "dist/agent/index.js"
+    "wp-analyze": "dist/agent/index.js",
+    "wp-agent": "dist/agent/agent-cli.js"
   },
   "scripts": {
     "build": "tsc",
     "dev": "tsc --watch",
     "start": "node dist/agent/index.js",
+    "agent": "node dist/agent/agent-cli.js",
     "mcp": "node dist/mcp-server/index.js"
   },
   "dependencies": {

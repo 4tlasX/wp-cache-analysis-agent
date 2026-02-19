@@ -24,6 +24,7 @@ export interface HttpClientOptions {
   timeout?: number;
   followRedirects?: boolean;
   userAgent?: string;
+  headers?: Record<string, string>;
 }
 
 // Extract HTML comments from source
@@ -56,6 +57,7 @@ export async function httpClient(
     timeout = 30000,
     followRedirects = true,
     userAgent = 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/123.0.0.0 Safari/537.36',
+    headers: customHeaders = {},
   } = options;
 
   const startTime = performance.now();
@@ -73,23 +75,27 @@ export async function httpClient(
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), timeout);
 
+    // Build headers, allowing custom headers to override defaults
+    const requestHeaders: Record<string, string> = {
+      'User-Agent': userAgent,
+      'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8',
+      'Accept-Language': 'en-US,en;q=0.9',
+      'Accept-Encoding': 'gzip, deflate, br',
+      'Connection': 'keep-alive',
+      'Upgrade-Insecure-Requests': '1',
+      'Sec-Ch-Ua': '"Chromium";v="123", "Google Chrome";v="123", "Not:A-Brand";v="8"',
+      'Sec-Ch-Ua-Mobile': '?0',
+      'Sec-Ch-Ua-Platform': '"macOS"',
+      'Sec-Fetch-Dest': 'document',
+      'Sec-Fetch-Mode': 'navigate',
+      'Sec-Fetch-Site': 'none',
+      'Sec-Fetch-User': '?1',
+      ...customHeaders,
+    };
+
     const response = await fetch(url, {
       method: 'GET',
-      headers: {
-        'User-Agent': userAgent,
-        'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8',
-        'Accept-Language': 'en-US,en;q=0.9',
-        'Accept-Encoding': 'gzip, deflate, br',
-        'Connection': 'keep-alive',
-        'Upgrade-Insecure-Requests': '1',
-        'Sec-Ch-Ua': '"Chromium";v="123", "Google Chrome";v="123", "Not:A-Brand";v="8"',
-        'Sec-Ch-Ua-Mobile': '?0',
-        'Sec-Ch-Ua-Platform': '"macOS"',
-        'Sec-Fetch-Dest': 'document',
-        'Sec-Fetch-Mode': 'navigate',
-        'Sec-Fetch-Site': 'none',
-        'Sec-Fetch-User': '?1',
-      },
+      headers: requestHeaders,
       redirect: followRedirects ? 'follow' : 'manual',
       signal: controller.signal,
     });
